@@ -3,6 +3,9 @@
 
 /backend/.env
 /frontend/.env
+/frontend/.vite
+/backend/dist
+/frontend/dist
 
 # Logs
 logs
