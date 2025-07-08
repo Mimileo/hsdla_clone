@@ -2,6 +2,11 @@ import { create } from "zustand";
 import { apiClient } from "../config/axiosConfig"; // Make sure this includes JWT headers
 import { ITranscript } from "../types/transcript";
 
+
+
+
+
+
 interface TranscriptState {
   transcripts: ITranscript[];
   selectedTranscript: ITranscript | null;
@@ -10,9 +15,9 @@ interface TranscriptState {
 
   fetchAllTranscripts: () => Promise<ITranscript[]>;
   fetchTranscriptById: (id: string) => Promise<ITranscript>;
-  editTranscriptById: (id: string) => Promise<ITranscript>;
+  editTranscriptById: (id: string, data: ITranscript | Partial<ITranscript>) => Promise<ITranscript>;
   createTranscript: (data: ITranscript) => Promise<ITranscript>;
-  downloadTranscriptPDF: (id: string) => Promise<void>;
+  downloadTranscriptPDF: (id: string, withLogo?: boolean) => Promise<void>;
   clearSelectedTranscript: () => void;
   deleteTranscript: (id: string) => Promise<void>;
 }
@@ -49,10 +54,11 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
     }
   },
 
-  editTranscriptById: async (id) => {
+  editTranscriptById: async (id, data) => {
     set({ loading: true, error: null });
     try {
-      const res = await apiClient.get(`/transcripts/${id}`);
+      const res = await apiClient.patch(`/transcripts/${id}`, data);
+
       set({ selectedTranscript: res.data, loading: false });
 
       return res.data as ITranscript;
@@ -79,19 +85,30 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
 
   
 
-  downloadTranscriptPDF: async (id) => {
+  downloadTranscriptPDF: async (id, withLogo = false) => {
     try {
-      const res = await apiClient.get(`/transcripts/${id}/pdf`, {
+      const res = await apiClient.get(`/transcripts/${id}/pdf${withLogo ? "?logo=true" : ""}`, {
         responseType: "blob",
       });
 
       const blob = new Blob([res.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
+
+      const state = useTranscriptStore.getState();
+      const transcript = state.selectedTranscript;
+
+       const studentName = transcript?.student
+      ? `${transcript.student.firstName}_${transcript.student.lastName}`.replace(/\s+/g, "_")
+      : `Transcript_${id}`;
+
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Transcript_${id}.pdf`;
+      a.download = `${studentName}_Transcript.pdf`;
       a.click();
+      a.remove();
+
       window.URL.revokeObjectURL(url);
+
     } catch (err) {
       console.error("PDF download failed:", err);
     }

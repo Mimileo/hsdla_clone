@@ -65,14 +65,13 @@ import { clearAuthCookies, setAuthCookies } from '../utils/cookie';
     setAuthCookies({ res, accessToken, refreshToken });
 
     console.log('Sending login response for user:', user.email);
+
+    const loginUser = await User.findById(user._id).select('-password -refreshToken');  
     res.json({
       accessToken,
       user: {
-        id: user._id,
-        email: user.email,
-        roles: user.roles,
-        firstName: user.firstName,
-        lastName: user.lastName,
+       loginUser
+        
       },
     });
   } catch (err) {
@@ -98,11 +97,12 @@ export const checkAuthController: RequestHandler = async (req: AuthRequest, res:
 
     res.status(200).json({
       user: {
-        id: user._id,
+        _id: user._id,
         email: user.email,
         roles: user.roles,
         firstName: user.firstName,
         lastName: user.lastName,
+        phone: user.phone,
       }
     });
   } catch (err) {

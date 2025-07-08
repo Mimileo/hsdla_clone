@@ -13,7 +13,7 @@ const formatDate = (date: Date | string | undefined | null): string => {
       });
 };
 
-export const renderTranscriptHTML = async (
+export const renderUnofficialTranscriptHTML = async (
   transcript: ITranscript,
   options: { showLogo?: boolean } = {}
 ): Promise<string> => {
@@ -247,7 +247,7 @@ export const renderTranscriptHTML = async (
             : ""
         }
 
-        <h2 id="transcript-title">Official High School Transcript</h2>
+        <h2 id="transcript-title">Unofficial High School Transcript</h2>
 
         <div class="info-row">
           <div class="info-col">
@@ -259,7 +259,6 @@ export const renderTranscriptHTML = async (
             <p>${student.city ?? ""}, ${student.state ?? ""} ${
     student.zip ?? ""
   }</p>
-  <p> ${student.country ?? ""}</p>
             <p><strong>Phone:</strong> ${student.phone ?? "N/A"}</p>
             <p><strong>DOB:</strong> ${formatDate(student.dob) ?? "N/A"}</p>
             <p><strong>Guardian:</strong> ${student.parentGuardian ?? "N/A"}</p>
@@ -367,14 +366,14 @@ export const renderTranscriptHTML = async (
         </div>
 
         <div class="certify">
-          <p>I self-certify and affirm that this is the official transcript and record of  <strong>${student.firstName} ${
+          <p>Coursework completed by <strong>${student.firstName} ${
     student.lastName
-  }</strong> completed academic studies from ${startYear}–${startYear + 4}.</p>
+  }</strong> from ${startYear}–${startYear + 4}.</p>
         
           <div class="signature-row">
             <div class="signature-block">
             <div class="signature-line"></div>
-            <p>Authorized Signature</p>
+            <p>***Unofficial Transcript - This is not an official transcript unless signed by an authorized representative***</p>
             </div>
              
             <div class="signature-date">

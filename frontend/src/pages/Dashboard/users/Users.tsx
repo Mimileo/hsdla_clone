@@ -2,8 +2,8 @@ import { useEffect } from "react";
 
 import { useNavigate } from "react-router-dom";
 
-import { useUserStore } from "../../stores/userStore";
-import { IUser } from "../../types/user";
+import { useUserStore } from "../../../stores/userStore";
+import { IUser } from "../../../types/user";
 
 export const Users = () => {
   const {
@@ -35,20 +35,22 @@ export const Users = () => {
   };
 }
 
-  const handleDownload = async (id: string) => {
-  //  await downloadTranscriptPDF(id);
-  };
+ 
 
   const handleEdit = async (id: string) => {
-    //await editTranscriptById(id);
+    a//wait editUser(id);
+    console.log(id);
 
   };
 
   const handleDelete = async (id: string) => {
    // await deleteTranscript(id);
-   const result = alert("Are you sure you want to delete this user?");
+   const result = window.confirm("Are you sure you want to delete this user?");
+   if (!result) {
+     return;
+   }
 
-   
+   console.log(result);
    await deleteUserById(id);
     
    
@@ -101,11 +103,12 @@ export const Users = () => {
                       Edit
                     </th>
                   </tr>
+                  
                 </thead>
                 <tbody>
                   {users.map((user: IUser) => (
                     <tr
-                      key={user.id}
+                      key={user._id}
                       className="odd:bg-white even:bg-gray-100 dark:odd:bg-neutral-900 dark:even:bg-neutral-800"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-start text-sm font-medium">
@@ -117,18 +120,32 @@ export const Users = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-end text-sm font-medium">
                         <button
-                          onClick={() => handleView(user.id)}
+                          onClick={() => handleView(user._id)}
                           className="text-blue-600 hover:text-blue-800 dark:text-blue-500 dark:hover:text-blue-400"
                         >
                           View
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-end text-sm font-medium">
+
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-end text-sm font-medium">
                         <button
-                          onClick={() => handleEdit(user.id)}
+                          onClick={() => handleEdit(user._id)}
                           className="text-blue-600 hover:text-blue-800 dark:text-blue-500 dark:hover:text-blue-400"
                         >
                           Edit
+                        </button>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-end text-sm font-medium">
+                        
+                      </td>
+
+                        <button
+                          onClick={() => handleDelete(user._id)}
+                          className="text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400"
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>

@@ -1,5 +1,7 @@
 import { RequestHandler } from "express";
 import User from "../models/User";
+import Transcript from "../models/Transcript";
+import { findTranscriptByStudentId } from "../services/TranscriptService";
 
 
 export const getAllUsersController: RequestHandler = async (req, res): Promise<void> => {
@@ -11,6 +13,7 @@ export const getAllUsersController: RequestHandler = async (req, res): Promise<v
     }
 };
 
+
 export const getUserByIdController: RequestHandler = async (req, res): Promise<void> => {
     try {
         const userId = req.params.id;
@@ -19,7 +22,7 @@ export const getUserByIdController: RequestHandler = async (req, res): Promise<v
             res.status(404).json({ error: 'User not found' });
             return;
         }
-        res.json(user);
+        res.json({ user: user });
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch user', details: err });
     }
@@ -53,7 +56,8 @@ export const updateUserController: RequestHandler = async (req, res): Promise<vo
             res.status(404).json({ error: 'User not found' });
             return;
         }
-        res.json(updatedUser);
+       res.json(updatedUser);
+
     } catch (err) {
         res.status(500).json({ error: 'Failed to update user', details: err });
     }
@@ -96,12 +100,25 @@ export const deleteUserController: RequestHandler = async (req, res): Promise<vo
             return;
         }
 
+        const transcript = await findTranscriptByStudentId(userId);
+
         const deletedUser = await User.findByIdAndDelete(userId);
+
+
 
         if (!deletedUser) {
              res.status(404).json({ error: 'User not found' });
              return;
         }
+
+        if (!transcript) {
+            res.status(404).json({ error: 'Transcript not found' });
+            return;
+        }
+
+        await Transcript.findByIdAndDelete(transcript._id);
+
+
         res.json({ message: 'User deleted successfully with id: ' + userId});
     } catch (err) {
         res.status(500).json({ error: 'Failed to delete user', details: err });

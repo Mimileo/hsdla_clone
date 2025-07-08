@@ -3,15 +3,15 @@ import { useTranscriptStore } from "../../../stores/transciptStore";
 import { ITranscript } from "../../../types/transcript";
 import { useNavigate } from "react-router-dom";
 import TranscriptUploader from "./Uploader/TranscriptUploader";
+import { Search } from "react-feather";
+import Placeholder from "@/components/Placeholder";
+import TableLoader from "@/components/TableLoader";
 
 export const Transcripts = () => {
   const {
     transcripts,
-    createTranscript,
     fetchTranscriptById,
-    editTranscriptById,
     deleteTranscript,
-    downloadTranscriptPDF,
     fetchAllTranscripts,
     loading,
     error,
@@ -40,21 +40,49 @@ export const Transcripts = () => {
     }
   };
 
-  const handleDownload = async (id: string) => {
-    await downloadTranscriptPDF(id);
-  };
+ 
 
   const handleEdit = async (id: string) => {
-    await editTranscriptById(id);
+    
+
+     try {
+      const transcript = await fetchTranscriptById(id);
+
+      if (!transcript) {
+        console.error("Transcript not found");
+        return;
+      }
+      // found transcript so navigate to transcript page
+      navigate(`/dashboard/transcripts/edit/${id}`);
+    } catch (err) {
+      console.error("Error fetching transcript:", err);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await deleteTranscript(id);
+    try {
+
+      if (!window.confirm("Are you sure you want to delete this transcript?")) {
+        return;
+      }
+      
+      await deleteTranscript(id);
+    } catch (err) {
+      console.error("Error deleting transcript:", err);
+    }
   };
 
   const handleCreateTranscript = async () => {
     // await createTranscript({ data });
   };
+
+  if (loading) {
+    return <TableLoader />;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   return (
     <div>
@@ -70,16 +98,16 @@ export const Transcripts = () => {
                 <div className="flex justify-center">
                   <label
                     htmlFor="search"
-                    className="px-4 py-2 text-white uppercase bg-pink-500 border-2 border-transparent rounded-lg text-md hover:bg-pink-400"
+                    className="px-4 py-2 text-white uppercase  bg-pink-500 border-2 border-transparent rounded-lg text-md hover:bg-pink-400"
                   >
-                    Search
+                   <Search/>
                   </label>
                   <input
                     type="text"
                     name="search"
                     id="search"
                     placeholder="Search"
-                    className="px-4 py-2 text-white uppercase bg-pink-500 border-2 border-transparent rounded-lg text-md hover:bg-pink-400"
+                    className="px-4 py-2 text-gray-900 uppercase bg-slate-100 border-2 border-transparent rounded-lg text-md hover:bg-slate-300"
                   />
                 </div>
               </div>
@@ -111,6 +139,13 @@ export const Transcripts = () => {
                     >
                       Edit
                     </th>
+
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase dark:text-neutral-500"
+                    >
+                      Delete
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -140,6 +175,15 @@ export const Transcripts = () => {
                           className="text-blue-600 hover:text-blue-800 dark:text-blue-500 dark:hover:text-blue-400"
                         >
                           Edit
+                        </button>
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-end text-sm font-medium">
+                        <button
+                          onClick={() => handleDelete(transcript._id.toString())}
+                          className="text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400"
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>
@@ -193,8 +237,8 @@ export const Transcripts = () => {
               </div>
 
               {showUploader && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center">
-                  <div className="bg-white max-w-6xl w-full p-6 rounded shadow-lg z-50 relative">
+                <div className="fixed inset-0 bg-gray-100 bg-opacity-10 z-40 flex justify-center items-center">
+                  <div className="w-1/2 p-6 rounded shadow-lg z-50 relative">
                     <button
                       className="absolute top-2 right-2 text-gray-500 hover:text-gray-800"
                       onClick={() => setShowUploader(false)}

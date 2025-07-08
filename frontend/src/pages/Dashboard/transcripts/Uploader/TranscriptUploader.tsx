@@ -1,7 +1,7 @@
+import { Upload, UploadIcon } from "lucide-react";
 import React, { useState } from "react";
-import Papa from "papaparse";
-import { detectGradeLevel } from "../../../../utils/detectGradeLevel";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
 
 interface CourseEdit {
   name: string;
@@ -11,6 +11,7 @@ interface CourseEdit {
   gradeLevel: number;
   startDate: string;
   endDate: string;
+  termYear: string;
 }
 
 interface TranscriptRecord {
@@ -18,6 +19,8 @@ interface TranscriptRecord {
   courses: CourseEdit[];
   gpa: number;
   totalCredits: number;
+  startYear: number;
+  endYear: number;
 }
 
 interface TranscriptDraft {
@@ -27,286 +30,215 @@ interface TranscriptDraft {
   cumulativeCredits: number;
 }
 
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+function formatDate(raw: string | number): string {
+  if (!raw) return "";
+  if (typeof raw === "number") {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const parsedDate = new Date(excelEpoch.getTime() + raw * 86400000);
+    return parsedDate.toISOString().slice(0, 10);
+  }
+  const parsed = new Date(raw);
+  return isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+}
+
+function percentageToLetterGrade(percent: number): string {
+  if (percent >= 90) return "A";
+  if (percent >= 80) return "B";
+  if (percent >= 70) return "C";
+  if (percent >= 60) return "D";
+  return "F";
+}
+
+function inferAcademicYear(date: string): string {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  return month >= 6 ? `${year}–${year + 1}` : `${year - 1}–${year}`;
 }
 
 export default function TranscriptUploader() {
-  const [grouped, setGrouped] = useState<Record<string, CourseEdit[]>>({});
-  const [transcriptDrafts, setTranscriptDrafts] = useState<TranscriptDraft[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const navigate = useNavigate();
 
- const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const cleaned = results.data
-          .map((row: any) => ({
-            studentName: row["Name"],
-            courseName: row["Course Name"],
-            letterGrade: row["Letter Grade"],
-            startDate: formatDate(row["Start Date"]),
-            endDate: formatDate(row["Target Date"]),
-          }))
-          .filter((row) => row.studentName && row.courseName);
+    setLoading(true);
+    setFile(selectedFile);
 
-        const groupedByStudent: Record<string, CourseEdit[]> = {};
-        cleaned.forEach((row) => {
-          const course: CourseEdit = {
-            name: row.courseName,
-            grade: row.letterGrade,
-            credits: 0.5,
-            type: "normal",
-            gradeLevel: detectGradeLevel(row.courseName, row.startDate),
-            startDate: row.startDate,
-            endDate: row.endDate,
-          };
+    const reader = new FileReader();
 
-          if (!groupedByStudent[row.studentName]) groupedByStudent[row.studentName] = [];
-          groupedByStudent[row.studentName].push(course);
-        });
+    reader.onload = (evt) => {
+      try {
+        const data = evt.target?.result as ArrayBuffer;
+        const workbook = XLSX.read(data, { type: "array" });
 
-        // Build transcript drafts
-        const drafts = Object.entries(groupedByStudent).map(([fullName, courses]) => {
-          const [lastName, firstName] = fullName.split(",").map((s) => s.trim());
-          const email = `${firstName}.${lastName}`.toLowerCase() + "@example.com";
+        const firstSheetName = workbook.SheetNames[0];
+        const firstSheet = workbook.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json(firstSheet, {
+          defval: "",
+        }) as Record<string, string>[];
 
-          const recordsMap: Record<number, CourseEdit[]> = {};
-          courses.forEach((c) => {
-            if (!recordsMap[c.gradeLevel]) recordsMap[c.gradeLevel] = [];
-            recordsMap[c.gradeLevel].push(c);
-          });
+        const cleaned = rows
+          .map((row) => {
+            if (!row["Name"] || !row["Start Date"] || !row["Actual Grade"]) return null;
 
-          const records = Object.entries(recordsMap).map(([gradeStr, courseList]) => {
-            const gradeLevel = parseInt(gradeStr);
-            const totalCredits = courseList.reduce((sum, c) => sum + c.credits, 0);
-            const totalPoints = courseList.reduce((sum, c) => {
-              const base = { A: 4, B: 3, C: 2, D: 1, F: 0 }[c.grade.toUpperCase()] ?? 0;
-              const boost = c.type === "honors" ? 0.5 : c.type === "ap" ? 1.0 : 0;
-              return sum + (base + boost) * c.credits;
-            }, 0);
-            const gpa = totalCredits ? +(totalPoints / totalCredits).toFixed(2) : 0;
+            const actualGradeRaw = row["Actual Grade"].toString();
+            const actualGradeClean = actualGradeRaw.replace(/[^\d.]/g, "");
+            let numericGrade = parseFloat(actualGradeClean);
+            if (numericGrade > 0 && numericGrade <= 1) numericGrade *= 100;
+
+            let letterGrade = "F";
+            if (!isNaN(numericGrade) && numericGrade <= 100) {
+              letterGrade = percentageToLetterGrade(numericGrade);
+            } else {
+              const backupGrade =
+                (row["Overall Grade"] ?? row["Relative Grade"])?.toString().trim().toUpperCase();
+              if (["A", "B", "C", "D", "F"].includes(backupGrade)) {
+                letterGrade = backupGrade;
+              }
+            }
 
             return {
-              gradeLevel,
-              courses: courseList,
-              gpa,
-              totalCredits,
+              studentName: row["Name"],
+              courseName: row["Course Name"],
+              letterGrade,
+              startDate: formatDate(row["Start Date"]),
+              endDate: formatDate(row["End Date"]),
             };
-          });
+          })
+          .filter((row) => row?.studentName && row.courseName);
 
-          const cumulativeCredits = records.reduce((sum, r) => sum + r.totalCredits, 0);
-          const cumulativePoints = records.reduce((sum, r) => sum + r.gpa * r.totalCredits, 0);
-          const cumulativeGPA = cumulativeCredits ? +(cumulativePoints / cumulativeCredits).toFixed(2) : 0;
+        const groupedByStudent: Record<string, CourseEdit[]> = {};
 
-          return {
-            student: { firstName, lastName, email },
-            records,
-            cumulativeGPA,
-            cumulativeCredits,
+        cleaned.forEach((row) => {
+          const course: CourseEdit = {
+            name: row!.courseName,
+            grade: row!.letterGrade,
+            credits: 0.5,
+            type: "normal",
+            gradeLevel: 0,
+            startDate: row!.startDate,
+            endDate: row!.endDate,
+            termYear: inferAcademicYear(row!.startDate),
           };
+          const key = row!.studentName;
+          if (!groupedByStudent[key]) groupedByStudent[key] = [];
+          groupedByStudent[key].push(course);
         });
 
-        // Redirect to preview page with drafts as state
-        navigate("/dashboard/transcripts/preview", { state: { transcriptDrafts: drafts } });
-      },
-      error: (error) => {
-        console.error("Error parsing CSV:", error);
+        const transcriptDrafts: TranscriptDraft[] = Object.entries(groupedByStudent).map(
+          ([fullName, courses]) => {
+            const parts = fullName.split(",").map((s) => s.trim());
+            const lastName = parts[0] || "Unknown";
+            const firstName = parts[1] || "Student";
+            const email = parts[2] || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`;
+
+            // Group by termYear and sort
+            const byYear: Record<string, CourseEdit[]> = {};
+            courses.forEach((c) => {
+              if (!byYear[c.termYear]) byYear[c.termYear] = [];
+              byYear[c.termYear].push(c);
+            });
+
+            const sortedYears = Object.keys(byYear).sort((a, b) => {
+              const aStart = parseInt(a.split("–")[0]);
+              const bStart = parseInt(b.split("–")[0]);
+              return aStart - bStart;
+            });
+
+            const records: TranscriptRecord[] = sortedYears.map((yearStr, index) => {
+              const gradeLevel = 9 + index;
+              const courseList = byYear[yearStr];
+              courseList.forEach((c) => (c.gradeLevel = gradeLevel));
+
+              const totalCredits = courseList.reduce((sum, c) => sum + c.credits, 0);
+              const totalPoints = courseList.reduce((sum, c) => {
+                const base = { A: 4, B: 3, C: 2, D: 1, F: 0 }[c.grade] ?? 0;
+                const boost = c.type === "honors" ? 0.5 : c.type === "ap" ? 1.0 : 0;
+                return sum + (base + boost) * c.credits;
+              }, 0);
+              const gpa = totalCredits ? +(totalPoints / totalCredits).toFixed(2) : 0;
+              const [startYear, endYear] = yearStr.split("–").map(Number);
+
+              return {
+                gradeLevel,
+                courses: courseList,
+                gpa,
+                totalCredits,
+                startYear,
+                endYear,
+              };
+            });
+
+            const cumulativeCredits = records.reduce((sum, r) => sum + r.totalCredits, 0);
+            const cumulativePoints = records.reduce((sum, r) => sum + r.gpa * r.totalCredits, 0);
+            const cumulativeGPA = cumulativeCredits ? +(cumulativePoints / cumulativeCredits).toFixed(2) : 0;
+
+            return {
+              student: { firstName, lastName, email },
+              records,
+              cumulativeGPA,
+              cumulativeCredits,
+            };
+          }
+        );
+
+        setLoading(false);
+        navigate("/dashboard/transcripts/preview", { state: { transcriptDrafts } });
+      } catch (error) {
+        console.error("Error parsing uploaded file:", error);
+        alert("There was an error reading the file. Please make sure it’s a valid Excel or CSV file.");
+        setLoading(false);
       }
-    });
-  };
+    };
 
-  const handleCourseChange = (student: string, index: number, key: keyof CourseEdit, value: any) => {
-    setGrouped((prev) => {
-      const updated = { ...prev };
-      updated[student][index] = {
-        ...updated[student][index],
-        [key]: key === "credits" || key === "gradeLevel" ? parseFloat(value) : value,
-      };
-      return updated;
-    });
-  };
-
-  const generateTranscriptDrafts = () => {
-    const drafts: TranscriptDraft[] = Object.entries(grouped).map(([fullName, courses]) => {
-      // Split name "Lastname, Firstname"
-      const [lastName, firstName] = fullName.split(",").map((s) => s.trim());
-      const email = `${firstName}.${lastName}`.toLowerCase() + "@example.com";
-
-      const recordsMap: Record<number, CourseEdit[]> = {};
-      courses.forEach((c) => {
-        if (!recordsMap[c.gradeLevel]) recordsMap[c.gradeLevel] = [];
-        recordsMap[c.gradeLevel].push(c);
-      });
-
-      const records = Object.entries(recordsMap).map(([gradeStr, courseList]) => {
-        const gradeLevel = parseInt(gradeStr);
-        const totalCredits = courseList.reduce((sum, c) => sum + c.credits, 0);
-        const totalPoints = courseList.reduce((sum, c) => {
-          const base = { A: 4, B: 3, C: 2, D: 1, F: 0 }[c.grade.toUpperCase()] ?? 0;
-          const boost = c.type === "honors" ? 0.5 : c.type === "ap" ? 1.0 : 0;
-          return sum + (base + boost) * c.credits;
-        }, 0);
-        const gpa = totalCredits ? +(totalPoints / totalCredits).toFixed(2) : 0;
-
-        return {
-          gradeLevel,
-          courses: courseList,
-          gpa,
-          totalCredits,
-        };
-      });
-
-      const cumulativeCredits = records.reduce((sum, r) => sum + r.totalCredits, 0);
-      const cumulativePoints = records.reduce((sum, r) => sum + r.gpa * r.totalCredits, 0);
-      const cumulativeGPA = cumulativeCredits ? +(cumulativePoints / cumulativeCredits).toFixed(2) : 0;
-
-      return {
-        student: { firstName, lastName, email },
-        records,
-        cumulativeGPA,
-        cumulativeCredits,
-      };
-    });
-
-    setTranscriptDrafts(drafts);
+    reader.readAsArrayBuffer(selectedFile);
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white rounded shadow">
-      <h2 className="text-xl font-semibold mb-4">Upload Enrollments CSV</h2>
-      <input type="file" accept=".csv" onChange={handleFileUpload} />
-      <hr className="my-4" />
+    <div className="bg-white p-8 rounded-xl shadow-xl max-w-md w-full">
+      <h2 className="text-2xl font-semibold text-gray-800 text-center mb-6">Upload Enrollment File</h2>
 
-      {Object.entries(grouped).map(([student, courses]) => (
-        <div key={student} className="mb-8 border p-4 rounded">
-          <h3 className="text-lg font-bold mb-4">{student}</h3>
-          <table className="w-full table-auto text-sm border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border px-2 py-1">Course</th>
-                <th className="border px-2 py-1">Grade</th>
-                <th className="border px-2 py-1">Credits</th>
-                <th className="border px-2 py-1">Type</th>
-                <th className="border px-2 py-1">Grade Level</th>
-                <th className="border px-2 py-1">Start</th>
-                <th className="border px-2 py-1">End</th>
-              </tr>
-            </thead>
-            <tbody>
-              {courses.map((course, i) => (
-                <tr key={i}>
-                  <td className="border px-2 py-1">
-                    <input
-                      className="w-full"
-                      value={course.name}
-                      onChange={(e) => handleCourseChange(student, i, "name", e.target.value)}
-                    />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <input
-                      className="w-full"
-                      value={course.grade}
-                      onChange={(e) => handleCourseChange(student, i, "grade", e.target.value)}
-                    />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <input
-                      type="number"
-                      step="0.5"
-                      className="w-20"
-                      value={course.credits}
-                      onChange={(e) => handleCourseChange(student, i, "credits", e.target.value)}
-                    />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <select
-                      className="w-full"
-                      value={course.type}
-                      onChange={(e) => handleCourseChange(student, i, "type", e.target.value)}
-                    >
-                      <option value="normal">Normal</option>
-                      <option value="honors">Honors</option>
-                      <option value="ap">AP</option>
-                    </select>
-                  </td>
-                  <td className="border px-2 py-1">
-                    <input
-                      type="number"
-                      className="w-16"
-                      value={course.gradeLevel}
-                      onChange={(e) => handleCourseChange(student, i, "gradeLevel", e.target.value)}
-                    />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <input
-                      type="date"
-                      className="w-full"
-                      value={course.startDate}
-                      onChange={(e) => handleCourseChange(student, i, "startDate", e.target.value)}
-                    />
-                  </td>
-                  <td className="border px-2 py-1">
-                    <input
-                      type="date"
-                      className="w-full"
-                      value={course.endDate}
-                      onChange={(e) => handleCourseChange(student, i, "endDate", e.target.value)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        {/* File Input  Box*/}
+        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 transition-all duration-300">
+            <UploadIcon className="w-10 h-10 text-blue-500" />
+             <input
+                aria-label="Upload Enrollments"
+                type="file"
+                accept=".csv, .xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                onChange={handleFileUpload}
+                className="mb-3 p-2 border rounded w-full"
+            />
+
+             <label aria-label="file-upload" className="text-gray-600 cursor-pointer text-center hover:text-blue-600 transition-all duration-300">
+                <span className="block text-xl font-medium">Drag & Drop your file here</span>
+                <span className="block text-sm text-gray-400">Or click to browse</span>
+            </label>
+            <div id="file-name" className="mt-3 text-gray-700 text-sm font-medium hidden">No file selected</div>
+
         </div>
-      ))}
+     
 
-      {Object.keys(grouped).length > 0 && (
-        <button
-          onClick={generateTranscriptDrafts}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 mb-8"
-        >
-          Preview Transcripts
-        </button>
+      {file && (
+        <p className="text-sm text-gray-600 mb-2">Selected file: {file.name}</p>
       )}
 
-      {transcriptDrafts && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Transcript Preview</h2>
-          {transcriptDrafts.map(({ student, records, cumulativeGPA, cumulativeCredits }) => (
-            <div key={student.email} className="mb-6 border p-4 rounded">
-              <h3 className="text-lg font-bold">{student.firstName} {student.lastName} ({student.email})</h3>
-              <p>Cumulative GPA: {cumulativeGPA}</p>
-              <p>Total Credits: {cumulativeCredits}</p>
-              <table className="w-full table-auto text-sm border mt-2">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border px-2 py-1">Grade Level</th>
-                    <th className="border px-2 py-1">GPA</th>
-                    <th className="border px-2 py-1">Credits</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map(({ gradeLevel, gpa, totalCredits }) => (
-                    <tr key={gradeLevel}>
-                      <td className="border px-2 py-1">{gradeLevel}</td>
-                      <td className="border px-2 py-1">{gpa}</td>
-                      <td className="border px-2 py-1">{totalCredits}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
+      {loading && (
+        <div className="w-full bg-gray-200 h-2 rounded overflow-hidden mb-4">
+          <div className="bg-blue-500 h-2 animate-pulse w-full"></div>
         </div>
       )}
+
+      <p className="text-sm text-gray-500">
+        Accepted: <code>.csv</code>, <code>.xlsx</code>. Must include columns:
+        <br />
+        <code>Name</code>, <code>Course Name</code>, <code>Actual Grade</code>,{" "}
+        <code>Start Date</code>, <code>End Date</code>.
+      </p>
     </div>
   );
 }

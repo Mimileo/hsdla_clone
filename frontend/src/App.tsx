@@ -12,15 +12,21 @@ import AuthenticatedRoute from "./components/routeWrappers/AuthenticatedRoute";
 import RegisterPage from "./pages/RegisterPage";
 import { Transcripts } from "./pages/Dashboard/transcripts/Transcripts";
 import TranscriptDetail from "./pages/Dashboard/transcripts/TranscriptDetail";
-import { Users } from "./pages/Dashboard/Users";
+import { Users } from "./pages/Dashboard/users/Users";
 import TranscriptPreviewPage from "./pages/Dashboard/transcripts/TranscriptPreviewPage";
-
+import EditTranscript from "./pages/Dashboard/transcripts/EditTranscript";
+import { SettingsPage } from "./pages/Dashboard/SettingsPage";
+import { Toaster } from "react-hot-toast";
+import UserPage from "./pages/Dashboard/users/UserPage";
+import EditUserPage from "./pages/Dashboard/users/EditUser";
 function App() {
   useEffect(() => {
     useAuthStore.getState().checkAuth();
   }, []);
 
   return (
+
+      
     <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
@@ -71,7 +77,24 @@ function App() {
           }
         />
 
-        <Route path="/dashboard/transcripts/preview" element={<TranscriptPreviewPage />} />
+        <Route 
+          path="/dashboard/transcripts/preview" 
+          element={
+            <ProtectedRoute>
+              <TranscriptPreviewPage />
+            </ProtectedRoute>
+          }
+           />
+
+         <Route 
+          path="/dashboard/transcripts/edit/:id" 
+          element={
+            <ProtectedRoute>
+              <EditTranscript />
+            </ProtectedRoute>
+          }
+           />
+
 
 
         <Route
@@ -87,7 +110,36 @@ function App() {
           path="/dashboard/users"
           element={
             <ProtectedRoute>
-              <Transcripts />
+              <Users />
+            </ProtectedRoute>
+          }
+        />
+
+         <Route
+          path="/dashboard/users/:id"
+          element={
+            <ProtectedRoute>
+              <UserPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/users/edit/:id"
+          element={
+            <ProtectedRoute>
+              <EditUserPage />
+            </ProtectedRoute>
+          }
+        />
+
+
+
+         <Route
+          path="/dashboard/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
             </ProtectedRoute>
           }
         />
@@ -100,6 +152,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+       
       </Route>
     </Routes>
   );

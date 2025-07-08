@@ -10,7 +10,7 @@ interface TranscriptState {
 
   fetchAllUsers: () => Promise<IUser[]>;
   fetchUserById: (id: string) => Promise<IUser>;
-  updateUserById: (id: string) => Promise<IUser>;
+  updateUserById: (id: string, data: Partial<IUser>) => Promise<IUser>;
   createUser: (data: IUser) => Promise<IUser>;
   downloadTranscriptPDF: (id: string) => Promise<void>;
   deleteUserById: (id: string) => Promise<void>;
@@ -39,24 +39,27 @@ export const useUserStore = create<TranscriptState>((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await apiClient.get(`/users/${id}`);
-      set({ selectedUser: res.data, loading: false });
+      set({ selectedUser: res.data.user, loading: false });
 
-      return res.data as IUser;
+
+      console.log("User from user store:", res.data.user);
+
+      return res.data.user as IUser;
     } catch (err) {
       set({ error: (err as Error).message || "Failed to fetch user", loading: false });
       throw err;
     }
   },
 
-  updateUserById: async (id) => {
+  updateUserById: async (id, data) => {
     set({ loading: true, error: null });
     try {
-      const res = await apiClient.get(`/users/${id}`);
-      set({ selectedUser: res.data, loading: false });
+      const res = await apiClient.patch(`/users/edit/${id}`, data);
+      set({ selectedUser: res.data.user, loading: false });
 
-      return res.data as IUser;
+      return res.data.user as IUser;
     } catch (err) {
-      set({ error: (err as Error).message || "Failed to fetch transcript", loading: false });
+      set({ error: (err as Error).message || "Failed to update user", loading: false });
       throw err;
     }
   },
@@ -102,7 +105,7 @@ export const useUserStore = create<TranscriptState>((set) => ({
     try {
       await apiClient.delete(`/users/${id}`);
       set((state) => ({
-        users: state.users.filter((t) => t.id !== id),
+        users: state.users.filter((t) => t._id !== id),
         loading: false,
       }));
     } catch (err) {
