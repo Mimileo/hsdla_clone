@@ -8,10 +8,14 @@ import adminRoutes from './routes/adminRoute';
 import userRoutes from './routes/userRoute';
 import cookieParser from 'cookie-parser';
 
+import path from 'path';
+
 dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 4004;
+
+
 
 connectDB();
 app.use(cors({

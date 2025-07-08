@@ -4,6 +4,7 @@ import mongoose, { Schema, Document } from "mongoose";
 export type CourseType = "normal" | "honors" | "ap";
 
 export interface ICourse {
+    _id?: mongoose.Schema.Types.ObjectId;
   name: string;
   grade: string; // A, B, C, etc.
   credits: number;
@@ -14,6 +15,8 @@ export interface IYearRecord {
   gradeLevel: number; // 9, 10, 11, 12
   courses: ICourse[];
   gpa: number;
+  startYear: number;
+  endYear: number;
   totalCredits: number;
 }
 
@@ -39,6 +42,8 @@ const courseSchema = new Schema<ICourse>({
 const yearRecordSchema = new Schema<IYearRecord>({
   gradeLevel: { type: Number, required: true },
   courses: [courseSchema],
+  startYear: { type: Number, required: true },
+  endYear: { type: Number, required: true },
   gpa: { type: Number, required: true },
   totalCredits: { type: Number, required: true },
 });

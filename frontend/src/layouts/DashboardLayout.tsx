@@ -27,7 +27,7 @@ export default function DashboardLayout() {
     { name: "Home", path: "/dashboard" },
     { name: "About", path: "/transcript" },
     { name: "Contact", path: "/profile" },
-    { name: "Settings", path: "/settings" },
+    { name: "Settings", path: "/dashboard/settings" },
   ];
 
   return (

@@ -1,7 +1,15 @@
-import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { ITranscript, IYearRecord } from "../../../types/transcript";
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useTranscriptStore } from "../../../stores/transciptStore";
-import { ITranscript, IYearRecord, ICourse } from "../../../types/transcript";
+import { v4 as uuidv4 } from 'uuid';
+import toast from "react-hot-toast";
+import { formatDate } from "@/utils/formatDate";
+import { useRef } from "react";
+import {  ArrowDownCircle } from "lucide-react";
+import { CountryDropdown } from "@/components/ui/country-dropdown";
+
+
 
 type EditableCourse = {
   name: string;
@@ -12,7 +20,19 @@ type EditableCourse = {
 
 type EditableRecord = IYearRecord & {
   courses: EditableCourse[];
+  startYear?: number;
+  endYear?: number;
 };
+
+interface CourseEdit {
+  name: string;
+  grade: string;
+  credits: number;
+  type: "normal" | "honors" | "ap";
+  startDate?: string;
+  endDate?: string;
+}
+
 
 type EditableTranscript = Omit<ITranscript, "records"> & {
   records: EditableRecord[];
@@ -26,94 +46,136 @@ type EditableTranscript = Omit<ITranscript, "records"> & {
   state?: string;
   zip?: string;
   country?: string;
+  city?: string;
   gender?: string;
-  middleName?: string;
   lastName?: string;
   firstName?: string;
   cumulativeGPA?: number;
-  
+
   errors?: {
     [field: string]: string;
-  }
+  };
 };
 
 export default function TranscriptPreviewPage() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { createTranscript } = useTranscriptStore();
-   const drafts = state?.transcriptDrafts || [];
+
+  const submitRef = useRef<HTMLDivElement | null>(null);
+
+  const drafts = state?.transcriptDrafts || [];
 
   const [editableDrafts, setEditableDrafts] = useState<EditableTranscript[]>(
     () =>
       drafts.map((t: ITranscript) => ({
         ...t,
-        address: (t as any).address || "433 Sailmaster St. Apt. A",
-        dob: (t as any).dob || "11/02/2006",
-        parentGuardian: (t as any).parentGuardian || "Lisa Mansell",
-        records: t.records.map((r) => ({
-          ...r,
-          courses: r.courses.map((c) => ({
-            name: c.name,
-            grade: c.grade,
-            credits: c.credits,
-            type: c.type || "normal",
-          })),
-        })),
+        firstName: t.student.firstName || "First Name",
+        lastName: t.student.lastName || "Last Name",
+        address: t.student.address || "Address",
+        city: t.student.city || "City",
+        state: t.student.state || "",
+        country: t.student.country || "",
+        zip: t.student.zip || "",
+        email: t.student.email || "Email",
+        phone: t.student.phone || "(123) 456-7890",
+        dob: t.student.dob || "MM/DD/YYYY",
+        gender: t.student.gender || "",
+        parentGuardian: t.student.parentGuardian || "Parent/Guardian",
+        startDate: t.student.startDate || "MM/DD/YYYY",
+        graduationDate: t.student.graduationDate || "MM/DD/YYYY",
+
+
+        records: t.records.map((r) => {
+          const defaultStart = 2021 + (r.gradeLevel - 9);
+          const startYears = r.courses
+            .map((c:CourseEdit) => new Date(c.startDate ?? "").getFullYear())
+            .filter((y) => !isNaN(y));
+          const inferredStartYear = startYears.length
+            ? Math.min(...startYears)
+            : defaultStart;
+
+          const endYears = r.courses
+            .map((c) => new Date(c.endDate ?? "").getFullYear())
+            .filter((y) => !isNaN(y));
+          const inferredEndYear = endYears.length
+            ? Math.max(...endYears)
+            : inferredStartYear + 1;
+
+        console.log(inferredStartYear, inferredEndYear);
+
+          const safeStartYear =
+            r.startYear > 1900 ? r.startYear : inferredStartYear;
+          const safeEndYear =
+            r.endYear > 1900 && r.endYear > safeStartYear
+              ? r.endYear
+              : safeStartYear + 1;
+
+          return {
+            ...r,
+            startYear: safeStartYear,
+            endYear: safeEndYear,
+            courses: r.courses.map((c) => ({
+              name: c.name,
+              grade: c.grade,
+              credits: c.credits,
+              type: c.type || "normal",
+            })),
+          };
+        }),
       }))
   );
 
- 
-
   const handleSave = async (data: EditableTranscript) => {
-    const res = await createTranscript(data);
-    navigate("/dashboard/transcripts");
+  // Validate years
+  for (const r of data.records) {
+    if (!r.startYear || !r.endYear) {
+      alert("Each academic record must include a valid start and end year.");
+      return;
+    }
+  }
+
+  // Build student object from editable fields
+  const student = {
+    firstName: data.firstName ?? "",
+    lastName: data.lastName ?? "",
+    email: data.email ?? "",
+    address: data.address ?? "",
+    city: data.city ?? "",
+    state: data.state ?? "",
+    zip: data.zip ?? "",
+    country: data.country ?? "",
+    phone: data.phone ?? "",
+    dob: data.dob ?? "",
+    parentGuardian: data.parentGuardian ?? "",
+    startDate: data.startDate ?? "",
+    graduationDate: data.graduationDate ?? "",
+    gender: data.gender ?? "",
+    
   };
 
-  function handleAddTerm(tIdx: number) {
-    setEditableDrafts((prev) => {
-      const newDrafts = [...prev];
-      const draft = { ...newDrafts[tIdx] };
+  // Build final transcript object
+  const fullTranscript: ITranscript = {
+    ...data,
+    student,
+    records: data.records,
+  };
 
-      // Determine next gradeLevel (max + 1)
-      const maxGrade = draft.records.reduce(
-        (max, r) => Math.max(max, r.gradeLevel),
-        8
-      );
+  console.log(fullTranscript);
 
-      draft.records = [
-        ...draft.records,
-        {
-          gradeLevel: maxGrade + 1,
-          courses: [],
-          totalCredits: 0,
-          gpa: 0,
-        },
-      ];
-
-      newDrafts[tIdx] = draft;
-      return newDrafts;
-    });
+  try {
+    const res = await createTranscript(fullTranscript);
+    console.log(res);
+    toast.success("Transcript created successfully");
+    navigate("/dashboard/transcripts");
+  } catch (err) {
+    toast.error("Failed to create transcript");
+    console.error("Error creating transcript:", err);
   }
+};
 
-  function handleAddCourse(tIdx: number, recordIndex: number) {
-    setEditableDrafts((prev) => {
-      const newDrafts = [...prev];
-      const draft = { ...newDrafts[tIdx] };
-      const records = [...draft.records];
-      const record = { ...records[recordIndex] };
 
-      record.courses = [
-        ...record.courses,
-        { name: "", grade: "A", credits: 0.5, type: "normal" },
-      ];
 
-      // Recalculate record after adding empty course
-      records[recordIndex] = recalcRecord(record);
-      draft.records = records;
-      newDrafts[tIdx] = draft;
-      return newDrafts;
-    });
-  }
 
   function handleStudentInfoChange(
     tIdx: number,
@@ -147,6 +209,24 @@ export default function TranscriptPreviewPage() {
       }))
   );*/
 
+  function handleRecordMetaChange(
+    tIdx: number,
+    recordIndex: number,
+    key: keyof EditableRecord,
+    value: string | number
+  ) {
+    setEditableDrafts((prev) => {
+      const newDrafts = [...prev];
+      const draft = { ...newDrafts[tIdx] };
+      const records = [...draft.records];
+      const record = { ...records[recordIndex], [key]: value };
+      records[recordIndex] = record;
+      draft.records = records;
+      newDrafts[tIdx] = draft;
+      return newDrafts;
+    });
+  }
+
   function recalcRecord(record: EditableRecord): EditableRecord {
     const totalCredits = record.courses.reduce((sum, c) => sum + c.credits, 0);
     const totalPoints = record.courses.reduce((sum, c) => {
@@ -160,10 +240,6 @@ export default function TranscriptPreviewPage() {
       totalCredits,
       gpa: totalCredits ? +(totalPoints / totalCredits).toFixed(2) : 0,
     };
-  }
-
-  function recalcAllRecords(records: EditableRecord[]): EditableRecord[] {
-    return records.map(recalcRecord);
   }
 
   function handleDeleteCourse(
@@ -186,14 +262,11 @@ export default function TranscriptPreviewPage() {
 
       // Recalculate cumulative GPA/credits
       const totalCredits = records.reduce((sum, r) => sum + r.totalCredits, 0);
-      const totalPoints = records.reduce(
-        (sum, r) => sum + r.gpa * r.totalCredits,
-        0
-      );
+      const totalPoints = records.reduce((sum, r) => sum + r.totalCredits * r.gpa, 0);
+
       draft.cumulativeCredits = totalCredits;
       draft.cumulativeGPA = totalCredits
-        ? +(totalPoints / totalCredits).toFixed(2)
-        : 0;
+        ? + (totalPoints / totalCredits).toFixed(2): 0;
 
       newDrafts[tIdx] = draft;
       return newDrafts;
@@ -216,8 +289,12 @@ export default function TranscriptPreviewPage() {
       const courses = [...record.courses];
       const course = { ...courses[courseIndex] };
 
-      course[key] =
-        key === "credits" ? Number(value) : String(value).toUpperCase();
+      (course[key] as string | number) =
+        key === "credits"
+          ? Number(value)
+          : key === "grade"
+          ? String(value).toUpperCase()
+          : String(value);
 
       courses[courseIndex] = course;
       record.courses = courses;
@@ -256,8 +333,13 @@ export default function TranscriptPreviewPage() {
   return (
     <div className="max-w-5xl mx-auto p-6 bg-white rounded shadow">
       <h1 className="text-2xl font-bold mb-6 text-center uppercase tracking-wide">
-        Transcript Preview & Edit
+        Transcript Preview 
       </h1>
+
+    <span className="bg-green-100 text-green-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-blue-900 dark:text-blue-300">
+
+            1. Enter Student information
+    </span>
 
       {editableDrafts.length === 0 && <p>No transcripts to preview.</p>}
 
@@ -269,34 +351,109 @@ export default function TranscriptPreviewPage() {
         return (
           <div key={tIdx} className="mb-10 border p-6 rounded shadow">
             {/* Student & School Info */}
+
+
             <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
               <div>
                 <h2 className="font-semibold text-gray-700 mb-1">
                   Student Information
                 </h2>
-                <p>
-                  {student.firstName} {student.lastName}
+                <p className="text-gray-600">
+                  <strong>First Name:</strong>{" "}
+                 <input
+                    title="firstName"
+                    type="text"
+                    name="firstName"
+                    aria-label="firstName"
+                    className="border p-1 w-full"
+                    value={transcript.firstName || ""}
+                    placeholder={transcript.firstName ? transcript.firstName : "First Name"}
+                    onChange={(e) =>
+                      handleStudentInfoChange(tIdx, "firstName", e.target.value)
+                    }
+                  />
+                </p>
+
+                 <p className="text-gray-600">
+                  <strong>Last Name:</strong>{" "}
+                  <input
+                    title="lastName"
+                    type="text"
+                    name="lastName"
+                    aria-label="lastName"
+                    className="border p-1 w-full"
+                    value={transcript.lastName}
+                    placeholder={transcript.lastName ? transcript.lastName : "Last Name"}
+                    onChange={(e) =>
+                      handleStudentInfoChange(tIdx, "lastName", e.target.value)
+                    }
+                  />
                 </p>
                 <p className="text-gray-600">
                   <strong>Address:</strong>{" "}
                   <input
+                    title="address"
                     type="text"
                     name="address"
                     aria-label="address"
                     className="border p-1 w-full"
+                    placeholder={transcript.address ? transcript.address : "Address"}
                     value={transcript.address}
                     onChange={(e) =>
                       handleStudentInfoChange(tIdx, "address", e.target.value)
                     }
                   />
                 </p>
-                <p className="text-gray-600">Lakeway, Texas 78734</p>
+
+                <p className="text-gray-600">
+                  <strong>City:</strong>{" "}
+                  <input
+                    title="city"
+                    type="text"
+                    name="city"
+                    aria-label="city"
+                    className="border p-1 w-full"
+                    placeholder={transcript.city ? transcript.city : "City"}
+                    value={transcript.city}
+                    onChange={(e) =>
+                      handleStudentInfoChange(tIdx, "city", e.target.value)
+                    }
+                  />
+                </p>
+
+                <p className="text-gray-600">
+                  <strong>State:</strong>{" "}
+                  <input
+                    title="State"
+                    type="text"
+                    name="state"
+                    aria-label="state"
+                    className="border p-1 w-full"
+                    value={transcript.state}
+                    placeholder={transcript.state ? transcript.state : "State"}
+                    onChange={(e) =>
+                      handleStudentInfoChange(tIdx, "state", e.target.value)
+                    }
+                  />
+                </p>
+
+                <p className="text-gray-600">
+                  <strong>Country:</strong>{" "}
+                  <CountryDropdown
+                    defaultValue={transcript.country || undefined}
+                    onChange={(country) =>
+                      handleStudentInfoChange(tIdx, "country", country.alpha3)
+                    }
+                  />
+                </p>
                 <p className="text-gray-600">
                   <strong>Phone:</strong>{" "}
                   <input
+                    title="phone"
                     type="tel"
                     name="phone"
                     aria-label="phone"
+                    placeholder={transcript.phone ? transcript.phone : "(xxx) xxx-xxxx"}
                     className="border p-1 w-full"
                     value={transcript.phone}
                     onChange={(e) =>
@@ -307,19 +464,22 @@ export default function TranscriptPreviewPage() {
                 <p className="text-gray-600">
                   <strong>Email:</strong>{" "}
                   <input
+                    title="email"
                     type="email"
                     name="email"
                     aria-label="email"
                     className="border p-1 w-full"
                     value={transcript.email}
+                    placeholder={transcript.email ? transcript.email : "email@example.com"}
                     onChange={(e) =>
                       handleStudentInfoChange(tIdx, "email", e.target.value)
                     }
                   />
                 </p>
                 <p className="text-gray-600">
-                     <strong>Date of Birth:</strong>{" "}
+                  <strong>Date of Birth:</strong>{" "}
                   <input
+                    title="date of birth"
                     type="date"
                     name="dob"
                     aria-label="dob"
@@ -331,19 +491,27 @@ export default function TranscriptPreviewPage() {
                   />
                 </p>
                 <p className="text-gray-600">
-                    <strong>Parent/Guardian:</strong>{" "}
+                  <strong>Parent/Guardian:</strong>{" "}
                   <input
+                    title="parent/guardian"
                     type="text"
                     name="parent"
                     aria-label="parent"
                     className="border p-1 w-full"
                     value={transcript.parentGuardian}
+                    placeholder={transcript.parentGuardian ? transcript.parentGuardian : "Parent/Guardian"}
                     onChange={(e) =>
-                      handleStudentInfoChange(tIdx, "parentGuardian", e.target.value)
+                      handleStudentInfoChange(
+                        tIdx,
+                        "parentGuardian",
+                        e.target.value
+                      )
                     }
                   />
                 </p>
               </div>
+
+              
               <div>
                 <h2 className="font-semibold text-gray-700 mb-1">
                   School Information
@@ -357,12 +525,66 @@ export default function TranscriptPreviewPage() {
                 <p className="text-gray-600">626-360-8012</p>
                 <p className="text-gray-600">registration@sterling.academy</p>
               </div>
+
+              <div>
+                 <p>
+                <strong>9th Grade Start Date:</strong>{" "}
+                <input
+                  title="startDate"
+                  name="startDate"
+                  id="startDate"
+                  aria-label="Start Date"
+                  type="date"
+                  className="border p-1"
+                  value={transcript.startDate || ""}
+                  onChange={(e) =>
+                    handleStudentInfoChange(tIdx, "startDate", e.target.value)
+                  }
+                />
+              </p>
+              <p>
+                <strong>Graduation Date:</strong>{" "}
+                <input
+                  title="graduationDate"
+                  name="graduationDate"
+                  id="graduationDate"
+                  aria-label="Graduation Date"
+                  type="date"
+                  className="border p-1"
+                  value={transcript.graduationDate || ""}
+                  onChange={(e) =>
+                    handleStudentInfoChange(
+                      tIdx,
+                      "graduationDate",
+                      e.target.value
+                    )
+                  }
+                />
+              </p>
+              </div>
             </div>
 
+
+            <span 
+                onClick={() => submitRef.current?.scrollIntoView({ behavior: "smooth" })}
+                
+                className="cursor-pointer inline-flex items-center 
+                bg-blue-100 text-blue-800 text-sm font-medium me-3 px-3 py-0.75 rounded-sm 
+                dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 hover:transform hover:scale-105 transition duration-300 ease-in-out"
+            >
+
+            2. Review and Submit
+
+            <span className="me-2"> <ArrowDownCircle className="ms-2" /></span>
+                
+           
+             </span>
             {/* Academic Records */}
             <h2 className="text-md font-semibold uppercase mb-4">
               Academic Records
             </h2>
+
+           
             {pairedRecords.map((pair, i) => (
               <div
                 key={i}
@@ -370,10 +592,43 @@ export default function TranscriptPreviewPage() {
               >
                 {pair.map((record, rIdx) => (
                   <div key={record.gradeLevel}>
-                    <h3 className="font-bold text-gray-700 mb-2">
-                      Grade Level {record.gradeLevel} (
-                      {2021 + (record.gradeLevel - 9)} -{" "}
-                      {2022 + (record.gradeLevel - 9)})
+                    <h3 className="font-bold text-gray-700 mb-2 ">
+                    <span className="me-2"> Grade Level {record.gradeLevel} </span>
+                     
+                      <input
+                        disabled
+                        title="startYear"
+                        aria-label="startYear"
+                        type="number"
+                        value={record.startYear}
+                        className="border p-1 w-20"
+                        onChange={(e) =>
+                          handleRecordMetaChange(
+                            tIdx,
+                            i * 2 + rIdx,
+                            "startYear",
+                            +e.target.value
+                          )
+                        }
+                      />{" "}
+                      -{" "}
+                      <input
+                        disabled
+                        title="endYear"
+                        aria-label="endYear"
+                        type="number"
+                        value={record.endYear}
+                        className="border p-1 w-20"
+                        onChange={(e) =>
+                          handleRecordMetaChange(
+                            tIdx,
+                            i * 2 + rIdx,
+                            "endYear",
+                            +e.target.value
+                          )
+                        }
+                      />
+                      
                     </h3>
                     <table className="w-full border text-sm mb-2">
                       <thead className="bg-gray-100">
@@ -388,9 +643,7 @@ export default function TranscriptPreviewPage() {
                             Credits
                           </th>
                           <th className="border px-2 py-1 text-center">Type</th>
-                          <th className="border px-2 py-1 text-center">
-                            Actions
-                          </th>
+                          
                         </tr>
                       </thead>
                       <tbody>
@@ -398,6 +651,10 @@ export default function TranscriptPreviewPage() {
                           <tr key={cIdx}>
                             <td className="border px-2 py-1">
                               <input
+                                disabled
+                                title="courseName"
+                                type="text"
+                                aria-label="courseName"
                                 className="w-full"
                                 value={course.name}
                                 onChange={(e) =>
@@ -413,6 +670,9 @@ export default function TranscriptPreviewPage() {
                             </td>
                             <td className="border px-2 py-1 text-center">
                               <input
+                                disabled
+                                title="grade"
+                                aria-label="grade"
                                 className="w-16 text-center"
                                 value={course.grade}
                                 maxLength={2}
@@ -429,6 +689,9 @@ export default function TranscriptPreviewPage() {
                             </td>
                             <td className="border px-2 py-1 text-center">
                               <input
+                                disabled
+                                title="credits"
+                                aria-label="credits"
                                 type="number"
                                 step="0.25"
                                 className="w-16 text-center"
@@ -446,6 +709,10 @@ export default function TranscriptPreviewPage() {
                             </td>
                             <td className="border px-2 py-1 text-center">
                               <select
+                                disabled
+                                title="type"
+                                className="w-full"
+                                aria-label="type"
                                 value={course.type}
                                 onChange={(e) =>
                                   handleCourseChange(
@@ -453,7 +720,7 @@ export default function TranscriptPreviewPage() {
                                     i * 2 + rIdx,
                                     cIdx,
                                     "type",
-                                    e.target.value as any
+                                    e.target.value
                                   )
                                 }
                               >
@@ -462,28 +729,13 @@ export default function TranscriptPreviewPage() {
                                 <option value="ap">AP</option>
                               </select>
                             </td>
-                            <td className="border px-2 py-1 text-center">
-                              <button
-                                onClick={() =>
-                                  handleDeleteCourse(tIdx, i * 2 + rIdx, cIdx)
-                                }
-                                className="text-red-600 hover:text-red-800 font-bold"
-                                aria-label="Delete course"
-                              >
-                                &times;
-                              </button>
-                            </td>
+                            
                           </tr>
                         ))}
                       </tbody>
                     </table>
 
-                    <button
-                      className="mt-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                      onClick={() => handleAddCourse(tIdx, i * 2 + rIdx)}
-                    >
-                      + Add Course
-                    </button>
+                   
 
                     <p>
                       <strong>Total GPA:</strong> {record.gpa.toFixed(2)} |{" "}
@@ -494,12 +746,7 @@ export default function TranscriptPreviewPage() {
               </div>
             ))}
 
-            <button
-              className="mt-4 px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
-              onClick={() => handleAddTerm(tIdx)}
-            >
-              + Add Term (Grade Level)
-            </button>
+            <hr className="my-6" />
 
             {/* Academic Summary */}
             <h2 className="text-md font-semibold uppercase mb-2">
@@ -512,35 +759,7 @@ export default function TranscriptPreviewPage() {
               <p>
                 <strong>Credits Earned:</strong> {cumulativeCredits.toFixed(2)}
               </p>
-              <p>
-               
-                <strong>9th Grade Start Date:</strong>{" "}
-                <input
-                    name="startDate"
-                    id="startDate"
-                    aria-label="Start Date"
-                    type="date"
-                    className="border p-1"
-                    value={transcript.startDate || ""}
-                    onChange={(e) =>
-                    handleStudentInfoChange(tIdx, "startDate", e.target.value)
-                    }
-                />
-              </p>
-              <p>
-                <strong>Graduation Date:</strong> {" "}
-                <input
-                    name="graduationDate"
-                    id="graduationDate"
-                    aria-label="Graduation Date"
-                    type="date"
-                    className="border p-1"
-                    value={transcript.graduationDate || ""}
-                    onChange={(e) =>
-                    handleStudentInfoChange(tIdx, "graduationDate", e.target.value)
-                    }
-                />
-              </p>
+             
               <p className="italic text-xs text-gray-500 mt-1">
                 * Honors = 0.5 boost, AP = 1.0 boost
               </p>
@@ -549,24 +768,24 @@ export default function TranscriptPreviewPage() {
             {/* Certification */}
             <div className="text-sm border-t pt-4 mt-6">
               <p>
-                I do hereby self-certify and affirm that this is the official
+                I self-certify and affirm that this is the official
                 transcript and record of{" "}
                 <strong>
                   {student.firstName} {student.lastName}
                 </strong>{" "}
                 in the academic studies of 2021–2025.
               </p>
-              <p className="mt-4">06/26/2025</p>
-              <p>Student Services Date</p>
+              <p className="mt-4">{formatDate(new Date())}</p>
+              <p>Authorized Signature</p>
             </div>
 
-            <div className="mt-6 text-right">
+            <div ref={submitRef} className="mt-6 text-right">
               <button
                 type="button"
                 onClick={() => handleSave(transcript)}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700"
               >
-                Save Transcript
+                Confirm & Proceed to Editing
               </button>
             </div>
           </div>
