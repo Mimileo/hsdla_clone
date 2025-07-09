@@ -8,6 +8,7 @@ import authRoutes from './routes/authRoutes';
 import adminRoutes from './routes/adminRoute';
 import userRoutes from './routes/userRoute';
 import cookieParser from 'cookie-parser';
+import history from 'connect-history-api-fallback';
 
 
 import path from 'path';
@@ -37,7 +38,11 @@ app.use('/api', adminRoutes);
 app.use('/api', userRoutes);
 
 const frontendPath = path.resolve(__dirname, '../public');
+
+app.use(history());
+
 app.use(express.static(frontendPath));
+
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'));
 });

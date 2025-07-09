@@ -13,6 +13,7 @@ const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const adminRoute_1 = __importDefault(require("./routes/adminRoute"));
 const userRoute_1 = __importDefault(require("./routes/userRoute"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
+const connect_history_api_fallback_1 = __importDefault(require("connect-history-api-fallback"));
 const path_1 = __importDefault(require("path"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -30,6 +31,7 @@ app.use('/api', authRoutes_1.default);
 app.use('/api', adminRoute_1.default);
 app.use('/api', userRoute_1.default);
 const frontendPath = path_1.default.resolve(__dirname, '../public');
+app.use((0, connect_history_api_fallback_1.default)());
 app.use(express_1.default.static(frontendPath));
 app.get('/{*splat}', (req, res) => {
     res.sendFile(path_1.default.join(frontendPath, 'index.html'));
