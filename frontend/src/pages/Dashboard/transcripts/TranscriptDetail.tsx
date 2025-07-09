@@ -58,7 +58,7 @@ export default function TranscriptDetail() {
   const previewWithLogo = async () => {
     try {
       const res = await apiClient.get(
-        `/transcripts/${selectedTranscript._id}/pdf?logo=true`,
+        `/transcripts/pdf/${selectedTranscript._id}?logo=true`,
         {
           responseType: "blob",
         }

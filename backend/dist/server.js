@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+// backend/src/server.ts
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -16,10 +17,6 @@ const path_1 = __importDefault(require("path"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 4004;
-app.use(express_1.default.static(path_1.default.join(__dirname, '../frontend/dist')));
-app.get('/*', (req, res) => {
-    res.sendFile(path_1.default.join(__dirname, '../frontend/dist/index.html'));
-});
 (0, database_1.connectDB)();
 app.use((0, cors_1.default)({
     origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
@@ -27,14 +24,16 @@ app.use((0, cors_1.default)({
 }));
 app.use((0, cookie_parser_1.default)());
 app.use(express_1.default.json());
-app.get('/', (req, res) => {
-    res.send('Hello World!');
-});
+// api routes set up
 app.use('/api', transcript_route_1.default);
 app.use('/api', authRoutes_1.default);
 app.use('/api', adminRoute_1.default);
 app.use('/api', userRoute_1.default);
+const frontendPath = path_1.default.resolve(__dirname, '../public');
+app.use(express_1.default.static(frontendPath));
+app.get('/{*splat}', (req, res) => {
+    res.sendFile(path_1.default.join(frontendPath, 'index.html'));
+});
 app.listen(PORT, () => {
     console.log(`Server node is running on port ${PORT}`);
-    console.log(`Server express is running on  ${process.env.DB_NAME}`);
 });

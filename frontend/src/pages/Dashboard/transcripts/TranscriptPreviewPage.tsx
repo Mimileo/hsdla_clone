@@ -2,7 +2,6 @@ import { ITranscript, IYearRecord } from "../../../types/transcript";
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranscriptStore } from "../../../stores/transciptStore";
-import { v4 as uuidv4 } from 'uuid';
 import toast from "react-hot-toast";
 import { formatDate } from "@/utils/formatDate";
 import { useRef } from "react";
@@ -96,7 +95,7 @@ export default function TranscriptPreviewPage() {
             : defaultStart;
 
           const endYears = r.courses
-            .map((c) => new Date(c.endDate ?? "").getFullYear())
+            .map((c:CourseEdit) => new Date(c.endDate ?? "").getFullYear())
             .filter((y) => !isNaN(y));
           const inferredEndYear = endYears.length
             ? Math.max(...endYears)
@@ -242,36 +241,6 @@ export default function TranscriptPreviewPage() {
     };
   }
 
-  function handleDeleteCourse(
-    tIdx: number,
-    recordIndex: number,
-    courseIndex: number
-  ) {
-    setEditableDrafts((prev) => {
-      const newDrafts = [...prev];
-      const draft = { ...newDrafts[tIdx] };
-      const records = [...draft.records];
-      const record = { ...records[recordIndex] };
-      const courses = [...record.courses];
-
-      courses.splice(courseIndex, 1); // remove the course
-
-      record.courses = courses;
-      records[recordIndex] = recalcRecord(record);
-      draft.records = records;
-
-      // Recalculate cumulative GPA/credits
-      const totalCredits = records.reduce((sum, r) => sum + r.totalCredits, 0);
-      const totalPoints = records.reduce((sum, r) => sum + r.totalCredits * r.gpa, 0);
-
-      draft.cumulativeCredits = totalCredits;
-      draft.cumulativeGPA = totalCredits
-        ? + (totalPoints / totalCredits).toFixed(2): 0;
-
-      newDrafts[tIdx] = draft;
-      return newDrafts;
-    });
-  }
 
   // Handler to update course field
   function handleCourseChange(

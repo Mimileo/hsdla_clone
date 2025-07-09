@@ -38,7 +38,7 @@ export const Users = () => {
  
 
   const handleEdit = async (id: string) => {
-    a//wait editUser(id);
+   
     console.log(id);
 
   };

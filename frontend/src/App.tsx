@@ -16,7 +16,6 @@ import { Users } from "./pages/Dashboard/users/Users";
 import TranscriptPreviewPage from "./pages/Dashboard/transcripts/TranscriptPreviewPage";
 import EditTranscript from "./pages/Dashboard/transcripts/EditTranscript";
 import { SettingsPage } from "./pages/Dashboard/SettingsPage";
-import { Toaster } from "react-hot-toast";
 import UserPage from "./pages/Dashboard/users/UserPage";
 import EditUserPage from "./pages/Dashboard/users/EditUser";
 function App() {
@@ -144,15 +143,7 @@ function App() {
           }
         />
 
-        <Route
-          path="/dashboard/users:id"
-          element={
-            <ProtectedRoute>
-              <Transcripts />
-            </ProtectedRoute>
-          }
-        />
-
+       
        
       </Route>
     </Routes>

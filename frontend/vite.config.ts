@@ -8,9 +8,22 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4004',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-  }
+  },
+
+ 
 })

@@ -314,7 +314,7 @@ export const renderTranscriptHTML = async (
                           `
                               )
                               .join("")
-                          : `<tr><td colspan="3" class="italic">No courses recorded</td></tr>`
+                          : `<tr><td colspan="3" class="italic"></td></tr>`
                       }
                     </tbody>
                   </table>

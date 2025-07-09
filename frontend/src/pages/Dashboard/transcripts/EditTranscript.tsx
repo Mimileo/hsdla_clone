@@ -1,26 +1,25 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranscriptStore } from "../../../stores/transciptStore";
 import { IUser } from "../../../types/user";
-import { ICourse, IYearRecord } from "../../../types/transcript";
 import { apiClient } from "../../../config/axiosConfig";
 import { CountryDropdown } from "@/components/ui/country-dropdown";
 import { CSS } from "@dnd-kit/utilities";
-import { toast } from "react-hot-toast";
 import {
   DndContext,
   closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
-  useDraggable,
   useDroppable,
   DragOverlay,
 } from "@dnd-kit/core";
 import type {
   DragEndEvent,
   DragStartEvent,
-  UniqueIdentifier,
+  //UniqueIdentifier,
 } from "@dnd-kit/core";
 import { GripVerticalIcon, Trash2Icon } from "lucide-react";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
@@ -56,6 +55,7 @@ function recalcRecord(r: EditableRecord): EditableRecord {
     // totalCredits
   };
 }
+
 
 function calculateCumulativeStatsUpTo(
   records: EditableRecord[],
@@ -108,7 +108,7 @@ export default function EditTranscriptPage() {
 
   const [draft, setDraft] = useState<EditableTranscript | null>(null);
 
-  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  //const [ setActiveId] = useState<UniqueIdentifier | null>(null);
 
   const [activeDrag, setActiveDrag] = useState<{
     recIdx: number;
@@ -294,7 +294,7 @@ function addCourse(recIdx: number) {
 
   // TODO: also remove the term from the transcript
 
-  const DroppableTerm = ({ recIdx, children }) => {
+  const DroppableTerm = ({ recIdx, children }: any) => {
     const { setNodeRef } = useDroppable({
       id: `term-${recIdx}`,
       data: { recIdx },
@@ -374,18 +374,19 @@ function addCourse(recIdx: number) {
     navigate(`/dashboard/transcripts/${selectedTranscript?._id}`);
   }
 
-  const DraggableCourse = ({ recIdx, courseIdx, courseId, children }) => {
+  const DraggableCourse = ({ recIdx, courseIdx, courseId, children }: any) => {
     const {
       attributes,
       listeners,
       setNodeRef,
       transform,
-      transition,
       isDragging,
     } = useSortable({
       id: courseId,
       data: { recIdx, courseId },
     });
+
+    console.log(isDragging, recIdx, courseIdx);
 
     // const isDragging = activeId === `course-${recIdx}-${courseIdx}`;
 
@@ -405,7 +406,6 @@ function addCourse(recIdx: number) {
   };
 
   function handleDragStart(event: DragStartEvent) {
-    setActiveId(event.active.id);
 
     const { recIdx, courseId } = event.active.data.current || {};
 
@@ -423,7 +423,7 @@ function addCourse(recIdx: number) {
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    setActiveId(null); // <– clear when done
+   // setActiveId(null); // <– clear when done
     setActiveDrag(null);
     const { active, over } = event;
 
