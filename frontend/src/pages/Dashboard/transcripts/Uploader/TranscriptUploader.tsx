@@ -1,4 +1,4 @@
-import { Upload, UploadIcon } from "lucide-react";
+import {  UploadIcon } from "lucide-react";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
@@ -199,7 +199,7 @@ export default function TranscriptUploader() {
   };
 
   return (
-    <div className="bg-white p-8 rounded-xl shadow-xl max-w-md w-full">
+    <div className="bg-white ">
       <h2 className="text-2xl font-semibold text-gray-800 text-center mb-6">Upload Enrollment File</h2>
 
 

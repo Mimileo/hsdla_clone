@@ -162,7 +162,7 @@ router.post(
 );
 
 router.get(
-  "/transcripts/:id/pdf",
+  "/transcripts/pdf/:id",
   verifyToken,
   requireRole("admin", "teacher"),
   async (req, res): Promise<void> => {

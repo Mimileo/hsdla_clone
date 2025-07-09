@@ -107,10 +107,17 @@ const CourseRow = memo(function CourseRow({
           aria-label="type"
           className="w-full"
           value={localCourse.type}
-          onChange={(e) =>
+          onChange={(e) =>{
             //updateCourse(recIdx, courseIdx, "type", e.target.value)
-            setLocalCourse({ ...localCourse, type: e.target.value })
+            const type = e.target.value;
+            if (type === "normal" || type === "honors" || type === "ap") {
+              setLocalCourse({ ...localCourse, type });
+            } else {
+              console.error(`Invalid type value: ${type}`);
+            }
+
           }
+        }
           onBlur={() => syncField("type", localCourse.type)}
         >
           <option value="normal">Normal</option>

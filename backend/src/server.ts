@@ -1,3 +1,4 @@
+// backend/src/server.ts
 import express, { Application, Request, Response} from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -8,8 +9,8 @@ import adminRoutes from './routes/adminRoute';
 import userRoutes from './routes/userRoute';
 import cookieParser from 'cookie-parser';
 
-import path from 'path';
 
+import path from 'path';
 dotenv.config();
 
 const app: Application = express();
@@ -28,16 +29,20 @@ app.use(express.json());
 
 
 
-app.get('/', (req: Request, res: Response) => {
-    res.send('Hello World!');
-})
+
+// api routes set up
 app.use('/api', transcriptRoutes);
 app.use('/api', authRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', userRoutes);
 
+const frontendPath = path.resolve(__dirname, '../public');
+app.use(express.static(frontendPath));
+app.get('/{*splat}', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
 
 app.listen(PORT, () => {
     console.log(`Server node is running on port ${PORT}`);
-    console.log(`Server express is running on  ${process.env.DB_NAME}`);
 });

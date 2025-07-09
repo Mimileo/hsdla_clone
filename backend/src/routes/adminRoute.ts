@@ -1,6 +1,4 @@
 import express from 'express';
-import User from '../models/User';
-import bcrypt from 'bcrypt';
 import { deleteUserController } from '../controllers/user.controller';
 const router = express.Router();
 
