@@ -2,6 +2,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { JSX } from 'react';
+import Loader from '../Loader';
 
 interface Props {
   children: JSX.Element;
@@ -11,7 +12,7 @@ const AuthenticatedRoute = ({ children }: Props) => {
   const { isAuthenticated, isCheckingAuth } = useAuthStore();
 
   if (isCheckingAuth) {
-    return <div className="p-6">Checking session...</div>;
+    return <div className="p-6"><Loader/></div>;
   }
 
   if (isAuthenticated) {

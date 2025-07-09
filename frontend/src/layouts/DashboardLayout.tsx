@@ -34,7 +34,7 @@ export default function DashboardLayout() {
     <div className="min-h-screen flex bg-gray-100">
       {/* Sidebar */}
       <aside className="w-64 bg-gray-800 text-white flex flex-col p-4">
-        <h2 className="text-2xl font-semibold mb-4">{user?.roles.includes("admin") ? "Admin Dashboard" : "User Dashboard"}</h2>
+        <h2 className="text-2xl font-semibold mb-4">{user?.roles?.includes("admin") ? "Admin Dashboard" : "User Dashboard"}</h2>
         <nav className="flex-1 space-y-2">
           {links.map((link) => (
             <NavLink
