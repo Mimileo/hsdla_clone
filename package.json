@@ -14,8 +14,8 @@
     "which": "^2.0.2"
   },
   "scripts": {
-   "dev": "concurrently \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\"",
-  "build:frontend": "npm --prefix frontend run build",
+"dev": "concurrently \"npm --prefix frontend run dev\" \"npm --prefix backend run dev\"",
+  "build:frontend": "npm install --prefix frontend && npm --prefix frontend run build",
   "copy-frontend": "npm --prefix backend run copy-frontend",
   "build:backend": "npm --prefix backend run build",
   "build": "npm run build:frontend && npm run copy-frontend && npm run build:backend",
