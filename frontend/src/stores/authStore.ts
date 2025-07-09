@@ -51,6 +51,9 @@ interface AuthState {
   forgotPassword: (email: string) => Promise<void>;
 
   resetPassword: (token: string, password: string) => Promise<void>;
+
+  refreshToken: () => Promise<string | null>;
+
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -186,40 +189,47 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  checkAuth: async () => {
-    set({ isCheckingAuth: true, error: null });
-    try {
-      const response = await apiClient.get(`/auth/session`);
+ checkAuth: async () => {
+  set({ isCheckingAuth: true, error: null });
 
-      if (response.data) {
-        console.log("Login user object properties:");
-        Object.entries(response.data.user).forEach(([key, value]) => {
-          console.log(`  ${key}:`, value);
-        });
-      } else {
-        console.log("No user object in login response");
-      }
-
+  try {
+    const response = await apiClient.get(`/auth/session`);
+    if (response.data?.user) {
       set({
         user: response.data.user,
         isAuthenticated: true,
         isCheckingAuth: false,
       });
-
       return response.data;
-    } catch (error) {
-      const errorMessage = getErrorMessage(error);
-
-      console.log(errorMessage);
-
-      set({
-        error: null,
-        isAuthenticated: false,
-        isCheckingAuth: false,
-        user: null,
-      });
     }
-  },
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      try {
+        // Try to refresh the token
+        const accessToken = await get().refreshToken();
+        if (accessToken) {
+          const response = await apiClient.get(`/auth/session`);
+          set({
+            user: response.data.user,
+            isAuthenticated: true,
+            isCheckingAuth: false,
+          });
+          return response.data;
+        }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (refreshError) {
+        console.log("Token refresh failed");
+      }
+    }
+
+    set({
+      error: null,
+      isAuthenticated: false,
+      isCheckingAuth: false,
+      user: null,
+    });
+  }
+},
 
   forgotPassword: async (email: string) => {
     set({ isLoading: true, error: null });
@@ -264,6 +274,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw error;
     }
   },
+
+
+  refreshToken: async () => {
+  try {
+    const response = await apiClient.get(`/auth/refresh`, {
+      withCredentials: true,
+    });
+
+    if (response.data.accessToken) {
+      set({ accessToken: response.data.accessToken, isAuthenticated: true });
+      return response.data.accessToken;
+    }
+
+    return null;
+  } catch (error) {
+    const errorMessage = getErrorMessage(error);
+    set({
+      error: errorMessage || "Error refreshing token",
+      isAuthenticated: false,
+      user: null,
+    });
+    throw error;
+  }
+},
+
 
   getStatus: (): string => {
     const { user } = useAuthStore.getState();
