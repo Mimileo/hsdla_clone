@@ -1,12 +1,12 @@
 import { CookieOptions, Response } from "express";
 
 export const REFRESH_PATH = '/';
-const secure = process.env.NODE_ENV !== "development";
+const secure = process.env.NODE_ENV === "production";
 
 const defaults: CookieOptions = {
     httpOnly: true,
     secure: secure,
-    sameSite: "strict",
+    sameSite: "lax",
 }
 
 export const getAccessTokenCookieOptions = (): CookieOptions => ({
@@ -37,5 +37,5 @@ export const clearAuthCookies = (res: Response) => {
     return res
     .clearCookie("accessToken")
     .clearCookie("refreshToken", { path: REFRESH_PATH })
-    .clearCookie("refreshToken", { path: "api/auth/refresh" });
+    .clearCookie("refreshToken", { path: "/" });
 }

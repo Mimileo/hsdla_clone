@@ -15,9 +15,8 @@ apiClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+}, (error) => Promise.reject(error));
+
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -43,10 +42,10 @@ apiClient.interceptors.response.use(
 
     if (
       error.response?.status === 401 &&
-      !originalRequest._retry
+      !originalRequest._retry &&
+      originalRequest.url !== '/auth/refresh'
     ) {
       if (isRefreshing) {
-        // If refresh already in progress, queue this request
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(token => {
@@ -61,20 +60,21 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshResponse = await apiClient.post('/auth/refresh');
+        const refreshResponse = await apiClient.get('/auth/refresh');
 
         const newAccessToken = refreshResponse.data.accessToken;
         useAuthStore.getState().setAccessToken(newAccessToken);
 
-        processQueue(new Error('Failed to refresh token'), newAccessToken);
+        processQueue( new Error('Failed to refresh token'), newAccessToken);
 
         if (originalRequest.headers) {
           originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
         }
+
         return apiClient(originalRequest);
       } catch (err) {
         processQueue(new Error('Failed to refresh token'), null);
-        useAuthStore.getState().logout(); // logout on refresh failure
+        useAuthStore.getState().logout();
         return Promise.reject(err);
       } finally {
         isRefreshing = false;
