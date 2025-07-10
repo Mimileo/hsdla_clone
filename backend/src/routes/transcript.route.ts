@@ -6,6 +6,8 @@ import puppeteer from "puppeteer";
 import { renderTranscriptHTML } from "../services/pdfTemplate";
 import Transcript, { ICourse } from "../models/Transcript";
 import mongoose from "mongoose";
+import  dotenv from "dotenv";
+dotenv.config();
 
 const router = express.Router();
 
@@ -187,6 +189,7 @@ router.get(
 
       const browser = await puppeteer.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       });
       const page = await browser.newPage();
 
