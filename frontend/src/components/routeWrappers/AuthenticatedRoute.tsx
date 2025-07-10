@@ -1,18 +1,21 @@
 // src/components/RedirectIfAuthenticated.tsx
 import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
 import { JSX } from 'react';
 import Loader from '../Loader';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 interface Props {
   children: JSX.Element;
 }
 
 const AuthenticatedRoute = ({ children }: Props) => {
-  const { isAuthenticated, isCheckingAuth } = useAuthStore();
+  const { isAuthenticated, isCheckingAuth, hasCheckedAuth } = useRequireAuth();
 
-  if (isCheckingAuth) {
-    return <div className="p-6"><Loader/></div>;
+  if (!hasCheckedAuth || isCheckingAuth) {
+    return (
+      <div className="p-6">
+        <Loader/>
+      </div>);
   }
 
   if (isAuthenticated) {

@@ -31,3 +31,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Docker
+docker-compose.override.yml
+docker-compose*.log
+.docker
+*.tar
