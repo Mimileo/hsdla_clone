@@ -23,6 +23,7 @@ app.use((0, cors_1.default)({
     origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
     credentials: true, // Access-Control-Allow-Credentials
 }));
+console.log("CLIENT_ORIGIN:", process.env.CLIENT_ORIGIN);
 app.use((0, cookie_parser_1.default)());
 app.use(express_1.default.json());
 // api routes set up
